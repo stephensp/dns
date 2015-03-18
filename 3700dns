@@ -1,0 +1,86 @@
+#!/usr/bin/python -u
+#
+# CS3700, Northeastern University
+# Project 3 Starter Code
+#
+
+import sys
+import socket
+import time
+import datetime
+import select
+import json
+from string import ascii_letters, digits, punctuation
+
+def log(string):
+  sys.stderr.write(datetime.datetime.now().strftime("%H:%M:%S.%f") + " " + string + "\n")
+
+# Do not change this function!
+def chunks(packet):
+  for i in xrange(0, len(packet), 16):
+    yield packet[i:i+16]
+
+# Do not change this function!
+def toascii(char):
+  if char == "  ":
+    return ""
+  if char in ascii_letters or char in digits or char in punctuation or char == ' ':
+    return char
+  return '.'
+
+# DUMP THE PACKET
+# Do not change this function!
+def dump_packet(packet):
+  lineno = 0
+  for line in list(chunks(packet)):
+    larr = list("{:02X}".format(ord(x)) for x in line)
+    while len(larr) < 16:
+      larr.append("  ")
+
+    r = "[%04x]   " % (lineno)
+    r = r + " ".join(larr[0:8]) + "   "
+    r = r + " ".join(larr[8:16]) + "   "
+    r = r + ("".join(toascii(x) for x in line[0:8]))
+    if len(line) > 8:
+      r = r + " " + ("".join(toascii(x) for x in line[8:16]))
+    lineno += 16
+    print r
+
+TIMEOUT = 5
+MSG_SIZE = 1500
+
+# Bind to all addresses and an ephemeral port
+UDP_IP = ""
+UDP_PORT = 0
+  
+# Set up the socket
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock.bind((UDP_IP, UDP_PORT))
+sock.settimeout(TIMEOUT)
+
+# Get port we bound to
+UDP_PORT = sock.getsockname()[1]
+
+# Prepare the request
+data = ...
+
+# Print out the packet
+# This is all that's required for the milestone
+dump_packet(data)
+  
+# For the final version, you should uncomment and complete the code below
+
+# Send the packet to the DNS server (you'll need to parse the args)
+
+# Now wait for response 
+#result = sock.recvfrom(MSG_SIZE)
+  
+# If nothing is ready, we hit the timeout
+#if result:
+#  (data, addr) = result
+
+  # Process the response, print out results
+#else:
+#  log("[error] timeout")
+#  sys.exit(-1)
+
