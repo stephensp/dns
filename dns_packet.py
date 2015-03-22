@@ -35,13 +35,13 @@ def create_header():
     # ARCOUNT = 0b0000_0000_0000_0000; ignore any reponses in this entry
 
     
-    header = struct.pack('!hhhhhh', 1337, 128, 1, 0, 0, 0)
+#    header = struct.pack('!hhhhhh', 1337, 128, 1, 0, 0, 0)
+    header = struct.pack('!hhhhhh', 1337, 256, 1, 0, 0, 0)
 
-    print binascii.hexlify(bytearray(header))
     return header
 
 def unpack_header(header):
-    h_id, byte_2, byte_3, qdcount, ancount, nscount, arcount  = struct.unpack('!hBBhhhh', header)
+    h_id, byte_2, byte_3, qdcount, ancount, nscount, arcount  = struct.unpack('!HBBHHHH', header)
     
     decoded_header = header_obj(h_id, byte_2, byte_3, qdcount, ancount, nscount, arcount)
     
@@ -58,7 +58,7 @@ def create_question(address):
     # Specify end of the name, 0x00
     # Add QTYPE , 0x0001, specifiies A type
     # Add QCLASS, 0x0001, specifies internet address
-    question = question + struct.pack('!Bhh',0, 1, 1)
+    question = question + struct.pack('!BHH',0, 1, 1)
 
     return question
 
@@ -68,7 +68,7 @@ def create_request(address):
     return request
 
     
-address = "www.northeastern.edu"
-request = create_request(address)
-print binascii.hexlify(bytearray(request))
+#address = "www.northeastern.edu"
+#request = create_request(address)
+#print binascii.hexlify(bytearray(request))
 

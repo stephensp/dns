@@ -11,6 +11,7 @@ import datetime
 import select
 import json
 from string import ascii_letters, digits, punctuation
+import dns_packet
 
 def log(string):
   sys.stderr.write(datetime.datetime.now().strftime("%H:%M:%S.%f") + " " + string + "\n")
@@ -62,15 +63,24 @@ sock.settimeout(TIMEOUT)
 UDP_PORT = sock.getsockname()[1]
 
 # Prepare the request
-data = ...
 
 # Print out the packet
 # This is all that's required for the milestone
-dump_packet(data)
+#dump_packet(data)
   
 # For the final version, you should uncomment and complete the code below
 
 # Send the packet to the DNS server (you'll need to parse the args)
+
+# Check to make sure command line arguements were passed correctly
+if(len(sys.argv) != 3):
+    print "Usage: ./3700dns @<server:port> <name>"
+    sys.exit(-1)
+
+request = dns_packet.create_request(sys.argv[2])
+dump_packet(request)
+
+#print binascii.hexlify(bytearray(request))
 
 # Now wait for response 
 #result = sock.recvfrom(MSG_SIZE)
