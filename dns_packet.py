@@ -5,7 +5,7 @@ import string
 import binascii
 
 class header_obj(object):
-    def __init__(self, h_id, byte_2, byte_3, qdcount, ancount, nscount, arcount):
+    def __init__(self, h_id, byte_2, qdcount, ancount, nscount, arcount):
         self.h_id = h_id 
         self.qdcount = qdcount
         self.ancount = ancount
@@ -14,11 +14,14 @@ class header_obj(object):
         self.decode_byte2(byte_2)
         
     def decode_byte2(self, byte_2):
-        self.qr = byte_2 & 1
-        self.opcode = (byte_2 & 30 ) >> 1
-        self.aa = (byte_2 & 32) >> 5
-        self.tc = (byte_2 & 64) >> 6
-        selef.rd = (byte_2 & 128) >> 7
+        self.qr = (byte_2 >> 15) & 1
+        self.op = (byte_2 >> 11) & 0xf
+        self.aa = (byte_2 >> 10) & 1
+        self.tc = (byte_2 >> 9) & 1
+        self.rd = (byte_2 >> 8) & 1
+        self.ra = (byte_2 >> 7) & 1
+        self.z = (byte_2 >> 4) & 0x7 
+        self.rcode = byte_2 & 0xf
 
 
 def create_header():
@@ -41,9 +44,27 @@ def create_header():
     return header
 
 def unpack_header(header):
-    h_id, byte_2, byte_3, qdcount, ancount, nscount, arcount  = struct.unpack('!HBBHHHH', header)
+    h_id, byte_2, qdcount, ancount, nscount, arcount  = struct.unpack('!HHHHHH', header)
     
-    decoded_header = header_obj(h_id, byte_2, byte_3, qdcount, ancount, nscount, arcount)
+    decoded_header = header_obj(h_id, byte_2, qdcount, ancount, nscount, arcount)
+    
+    
+#    print binascii.hexlify(bytearray(header))
+#    print "id " + str(decoded_header.h_id)
+#    print "qd " + str(decoded_header.qdcount)
+#    print "an " + str(decoded_header.ancount)
+#    print "ns " + str(decoded_header.nscount)
+#    print "ar " + str(decoded_header.arcount)
+#    print "byte_2 " + str(byte_2)
+#
+#    print "qr " + str(decoded_header.qr)
+#    print "op " + str(decoded_header.op)
+#    print "aa " + str(decoded_header.aa)
+#    print "tc " + str(decoded_header.tc)
+#    print "rd " + str(decoded_header.rd)
+#    print "ra " + str(decoded_header.ra)
+#    print "z " + str(decoded_header.z)
+#    print "rcode " + str(decoded_header.rcode)
     
     return decoded_header
     
@@ -66,6 +87,13 @@ def create_question(address):
 def create_request(address):
     request = create_header() + create_question(address)
     return request
+
+def decode_answer(packet):
+   # print binascii.hexlify(bytearray(packet))
+    header = unpack_header(packet[:12])
+    print binascii.hexlify(bytearray(packet[12:]))
+
+
 
     
 #address = "www.northeastern.edu"

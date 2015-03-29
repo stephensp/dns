@@ -62,16 +62,7 @@ sock.settimeout(TIMEOUT)
 # Get port we bound to
 UDP_PORT = sock.getsockname()[1]
 
-# Prepare the request
-
-# Print out the packet
-# This is all that's required for the milestone
-#dump_packet(data)
   
-# For the final version, you should uncomment and complete the code below
-
-# Send the packet to the DNS server (you'll need to parse the args)
-
 # Check to make sure command line arguements were passed correctly
 if(len(sys.argv) != 3):
     print "Usage: ./3700dns @<server:port> <name>"
@@ -82,15 +73,46 @@ dump_packet(request)
 
 #print binascii.hexlify(bytearray(request))
 
+# Send the packet to the DNS server (you'll need to parse the args)
+ip = sys.argv[1]
+tmp = ip.split(':')
+if(len(tmp) == 2):
+    port = tmp[1]
+else:
+    port = 53
+
+ip = tmp[0]
+ip = ip.replace("@", "")
+
+print "ip = " + str(ip)
+print "port = " +str(port)
+sock.sendto(request, (ip, port))
+
 # Now wait for response 
-#result = sock.recvfrom(MSG_SIZE)
+result = sock.recvfrom(MSG_SIZE)
   
 # If nothing is ready, we hit the timeout
-#if result:
-#  (data, addr) = result
+if result:
+  (data, addr) = result
+  decoded_packet = dns_packet.decode_answer(data)
+    
+#  print str(decoded_packet.ancount) + " answer"
+
+ # Very the question matches what was send
+#  if(dns_packet.verify_question(data[:12], request)):
+#      
+#   else:
+#       print "ERROR received question does not match sent message"
+#
+  
+
+
+ # for i in range(0, decoded_packet.ancount):
+ #     answer = dns_packet.get_answer(data[12:])
+
 
   # Process the response, print out results
 #else:
 #  log("[error] timeout")
 #  sys.exit(-1)
-
+#
