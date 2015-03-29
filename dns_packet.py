@@ -24,6 +24,15 @@ class header_obj(object):
         self.rcode = byte_2 & 0xf
 
 
+def quest_obj(object):
+    def __init__(self, name, type_q, class_q, ttl, rdlengh):
+        self.name = name
+        self.type_q= type_q 
+        self.class_q= class_q 
+        self.ttl = ttl 
+        self.rdlength = rdlength 
+
+
 def create_header():
     # This functions creates the header of a packet to send
     # since we will only be creating headers for packets
@@ -88,10 +97,36 @@ def create_request(address):
     request = create_header() + create_question(address)
     return request
 
-def decode_answer(packet):
-   # print binascii.hexlify(bytearray(packet))
+def unpack_question(question, size):
+    question = question[:(size - 12)]
+    return question
+    
+def unpack_answer(packet, an_offset):
+    answer = packet[an_offset:]
+    offset = an_offset
+    (length,)  = struct.unpack("!B", packet[offset:offset+1])
+    name = ""
+    # If the length field contains a pointer something 
+    # special needs to happen
+    if (length & 0xc0) == 0xc0:
+        # set address to offset
+        (offset,)  = struct.unpack("!H", packet[offset:offset+2])
+        offset = offset & 0x3f 
+        print offset
+        (length,)  = struct.unpack("!B",packet[offset:offset+1])
+
+    name = packet[offset-1:offset+length+1] 
+
+    print name
+    print binascii.hexlify(bytearray(packet[offset:]))
+
+
+def decode_answer(packet, quest_len):
+#    print binascii.hexlify(bytearray(packet))
     header = unpack_header(packet[:12])
-    print binascii.hexlify(bytearray(packet[12:]))
+    question = unpack_question(packet[12:], quest_len)
+    answer = unpack_answer(packet, quest_len)
+   
 
 
 

@@ -94,7 +94,7 @@ result = sock.recvfrom(MSG_SIZE)
 # If nothing is ready, we hit the timeout
 if result:
   (data, addr) = result
-  decoded_packet = dns_packet.decode_answer(data)
+  decoded_packet = dns_packet.decode_answer(data, len(request))
     
 #  print str(decoded_packet.ancount) + " answer"
 
