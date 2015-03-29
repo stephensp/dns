@@ -115,8 +115,9 @@ def unpack_answer(packet, an_offset):
         print offset
         (length,)  = struct.unpack("!B",packet[offset:offset+1])
 
-    name = packet[offset-1:offset+length+1] 
+    name = name + packet[offset+1:offset+length+1] + '.'
 
+    print binascii.hexlify(bytearray(name))
     print name
     print binascii.hexlify(bytearray(packet[offset:]))
 
