@@ -94,25 +94,53 @@ result = sock.recvfrom(MSG_SIZE)
 # If nothing is ready, we hit the timeout
 if result:
   (data, addr) = result
-  decoded_packet = dns_packet.decode_answer(data, len(request))
-    
-#  print str(decoded_packet.ancount) + " answer"
+  header = dns_packet.unpack_header(data[:12]) 
 
- # Very the question matches what was send
-#  if(dns_packet.verify_question(data[:12], request)):
-#      
-#   else:
-#       print "ERROR received question does not match sent message"
-#
-  
+  # Run some checks to make sure header is as expected
+  if header.h_id != 1337:
+      print "Error: Incorrect id "
+      sys.exit(-1)
 
+  if header.qr != 1:
+      print "Error: Received a query"
+      sys.exit(-1)
 
- # for i in range(0, decoded_packet.ancount):
- #     answer = dns_packet.get_answer(data[12:])
+  if header.tc == 1:
+      print "Error: Message was truncated"
+      sys.exit(-1)
 
+  if header.rcode == 1:
+      # Format error unable to interpert query
+      print "Error: Format Error"
+      sys.exit(-1)
+  if header.rcode == 2:
+      # Server failure
+      print "Error: Server Failure"
+      sys.exit(-1)
+  if header.rcode == 3:
+      # Name error
+      print "NOT FOUND"
+      sys.exit(-1)
+  if header.rcode == 4:
+      # Format error unable to interpert query
+      print "Error: Not Implemented"
+      sys.exit(-1)
+  if header.rcode == 5:
+      # Format error unable to interpert query
+      print "Error: Connection Refused"
+      sys.exit(-1)
 
-  # Process the response, print out results
-#else:
-#  log("[error] timeout")
-#  sys.exit(-1)
-#
+  question = dns_packet.unpack_question(data[12:], len(request)) 
+  # Check to make sure the question in the response matches the request sent
+  if(question != request[12:]):
+      print "Error: The response question does not match the question sent"
+      sys.exit(-1)
+
+  # Finally let's get answers
+  answer = dns_packet.unpack_answer(data, len(request), header.ancount)
+
+  print "IP " + str(answer.ip_adr) + "  " + 
+else:
+  log("[error] timeout")
+  sys.exit(-1)
+
