@@ -102,69 +102,73 @@ def unpack_question(question, size):
     question = question[:(size - 12)]
     return question
     
-def unpack_answer(packet, an_offset, num_ans):
-    print binascii.hexlify(bytearray(packet[an_offset:]))
-    answer = packet[an_offset:]
-    offset = an_offset
-    track_offset = offset # offset in answer packet
-    (length,)  = struct.unpack("!B", packet[offset:offset+1])
-    name = ""
-    in_ptr = 0 # track whether a pointer has been used
+def read_word(packet, offset):
+    
+    (length,)  = struct.unpack("!B", packet[offset])
 
-    # If the length field contains a pointer something 
-    # special needs to happen
+    name = []
+
+    print "length is " + str(length)
+    if(length & 0xc0) == 0xc0:
+        (ptr_offset,) = struct.unpack("!B", packet[offset+1])
+        ptr_offset = ((length & 0x3f) << 8) | ptr_offset
+        print "offset is" + str(ptr_offset)
+        name, tmp  = read_word(packet, ptr_offset)
+        return name, (offset + 2)
+
     while(length != 0x00):
-        if (length & 0xc0) == 0xc0:
-            # set address to offset
-            (offset,)  = struct.unpack("!H", packet[offset:offset+2])
-            offset = offset & 0x3f # clearing the first two bits
-            (length,)  = struct.unpack("!B",packet[offset:offset+1])
-            in_ptr = 1
-
-        if name == "":
-            name = name + packet[offset+1:offset+length+1]
-        else:
-            name = name + '.' + packet[offset+1:offset+length+1]
-
+        name.append(packet[offset+1:offset+length+1])
         offset = offset + length + 1
-        (length,)  = struct.unpack("!B", packet[offset:offset+1])
-        if in_ptr == 0:
-            track_offset = offset
+        (length,)  = struct.unpack("!B", packet[offset])
 
-    if in_ptr == 1:
-        offset = track_offset + 2
+    return name, offset
+    
+    
+def unpack_answer(packet, offset, num_ans):
+    (length,)  = struct.unpack("!B", packet[offset:offset+1])
 
+    # get name
+    name = []
+    name, offset = read_word(packet, offset)
+
+
+    name = '.'.join(name)
+    print name
 
     type_q, class_q, ttl, rdlength = struct.unpack("!HHHH", packet[offset:offset+8])
     offset = offset + 8
 
-    print "there are " + str(num_ans) + " answers"
 
-    if decoded_answer.type_q  == 1: 
+#    if type_q == 0x0005:
+#        print binascii.hexlify(bytearray(packet[offset:]))
+#        (length, ) = struct.unpack("!H", packet[offset:offset+2])
+#        b = struct.unpack("!B", packet[offset:offset+1])   
+#        print b
+    if type_q  == 0x0001: 
         # This is a standard A class
         (length, ) = struct.unpack("!H", packet[offset:offset+2])
-        print length
+#        print length
         offset = offset + 2
         ip = ''
         for j in range(0, length):
-            print "offset is " + str(offset)
+#            print "offset is " + str(offset)
             (b ,) = struct.unpack("!B", packet[offset:offset+1])
-            print "b is " + str(b)
+#            print "b is " + str(b)
             offset = offset + 1
             if ip == '':
                 ip = str(b)
             else:
                 ip = ip + '.' + str(b)
 
-    decoded_answer = ans_obj(name, type_q, class_q, ttl, rdlength, ip)
+            decoded_answer = ans_obj(name, type_q, class_q, ttl, rdlength, ip)
+            return decoded_answer
+
+    else:
+        return -1
 
 
 
-#def decode_answer(packet, quest_len):
-##    print binascii.hexlify(bytearray(packet))
-#    header = unpack_header(packet[:12])
-#    question = unpack_question(packet[12:], quest_len)
-#    answer = unpack_answer(packet, quest_len)
+
    
 
 
