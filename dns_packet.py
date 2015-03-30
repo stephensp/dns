@@ -108,18 +108,25 @@ def unpack_answer(packet, an_offset):
     name = ""
     # If the length field contains a pointer something 
     # special needs to happen
-    if (length & 0xc0) == 0xc0:
-        # set address to offset
-        (offset,)  = struct.unpack("!H", packet[offset:offset+2])
-        offset = offset & 0x3f 
-        print offset
-        (length,)  = struct.unpack("!B",packet[offset:offset+1])
+    while(length != 0x00):
+        if (length & 0xc0) == 0xc0:
+            # set address to offset
+            (offset,)  = struct.unpack("!H", packet[offset:offset+2])
+            offset = offset & 0x3f 
+            (length,)  = struct.unpack("!B",packet[offset:offset+1])
 
-    name = name + packet[offset+1:offset+length+1] + '.'
+        if name == "":
+            name = name + packet[offset+1:offset+length+1]
+        else:
+            name = name + '.' + packet[offset+1:offset+length+1]
+        offset = offset + length + 1
+        (length,)  = struct.unpack("!B", packet[offset:offset+1])
 
-    print binascii.hexlify(bytearray(name))
+#        print binascii.hexlify(bytearray(name))
     print name
-    print binascii.hexlify(bytearray(packet[offset:]))
+#        print binascii.hexlify(bytearray(packet[offset:]))
+
+        
 
 
 def decode_answer(packet, quest_len):
