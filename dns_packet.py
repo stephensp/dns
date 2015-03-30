@@ -104,19 +104,22 @@ def unpack_question(question, size):
     
 def read_word(packet, offset):
     
+#    print "offset is " + str(offset)
     (length,)  = struct.unpack("!B", packet[offset])
 
     name = []
 
-    print "length is " + str(length)
-    if(length & 0xc0) == 0xc0:
-        (ptr_offset,) = struct.unpack("!B", packet[offset+1])
-        ptr_offset = ((length & 0x3f) << 8) | ptr_offset
-        print "offset is" + str(ptr_offset)
-        name, tmp  = read_word(packet, ptr_offset)
-        return name, (offset + 2)
+#    print "length is " + str(length)
 
     while(length != 0x00):
+        if(length & 0xc0) == 0xc0:
+            (ptr_offset,) = struct.unpack("!B", packet[offset+1])
+            ptr_offset = ((length & 0x3f) << 8) | ptr_offset
+#            print "offset is" + str(ptr_offset)
+            tmp_name, tmp  = read_word(packet, ptr_offset)
+            name = name + tmp_name
+            return name, (offset + 2)
+
         name.append(packet[offset+1:offset+length+1])
         offset = offset + length + 1
         (length,)  = struct.unpack("!B", packet[offset])
@@ -124,7 +127,8 @@ def read_word(packet, offset):
     return name, offset
     
     
-def unpack_answer(packet, offset, num_ans):
+def unpack_answer(packet, offset):
+#    print binascii.hexlify(bytearray(packet))
     (length,)  = struct.unpack("!B", packet[offset:offset+1])
 
     # get name
@@ -133,38 +137,50 @@ def unpack_answer(packet, offset, num_ans):
 
 
     name = '.'.join(name)
-    print name
+#    print "Printing name: "
+#    print name
 
-    type_q, class_q, ttl, rdlength = struct.unpack("!HHHH", packet[offset:offset+8])
-    offset = offset + 8
+    type_q, class_q, ttl, rdlength = struct.unpack("!HHIH", packet[offset:offset+10])
+    offset = offset + 10 
+    
 
 
-#    if type_q == 0x0005:
-#        print binascii.hexlify(bytearray(packet[offset:]))
-#        (length, ) = struct.unpack("!H", packet[offset:offset+2])
-#        b = struct.unpack("!B", packet[offset:offset+1])   
-#        print b
+ #   print "type = " + str(type_q) 
+ #   print "class= " + str(class_q) 
+ #   print "ttl = " + str(ttl) 
+ #   print "rdlength = " + str(rdlength) 
+
+    if type_q == 0x0005:
+        # This means it is a CNAME, we need to read the alias
+        alias, offset = read_word(packet, offset)
+        alias = '.'.join(alias)
+#        print "Printing alias addres:" 
+#        print alias
+        decoded_answer = ans_obj(name, type_q, class_q, ttl, rdlength, alias)
+        return decoded_answer, offset
+
+    ip = []
+#    print "length of packet is " + str(len(packet))
     if type_q  == 0x0001: 
         # This is a standard A class
-        (length, ) = struct.unpack("!H", packet[offset:offset+2])
-#        print length
-        offset = offset + 2
-        ip = ''
-        for j in range(0, length):
-#            print "offset is " + str(offset)
-            (b ,) = struct.unpack("!B", packet[offset:offset+1])
-#            print "b is " + str(b)
-            offset = offset + 1
-            if ip == '':
-                ip = str(b)
-            else:
-                ip = ip + '.' + str(b)
+#        print "length is " + str(rdlength)
+#        print "offset is " + str(offset)
+#        print binascii.hexlify(bytearray(packet[offset:]))
+        my_ip = packet[offset:offset+rdlength]
+#        print binascii.hexlify(bytearray(my_ip))
+        
+        for j in range(0, rdlength):
+            (value,) = struct.unpack("!B", packet[offset+j])
+            ip.append(value)
 
-            decoded_answer = ans_obj(name, type_q, class_q, ttl, rdlength, ip)
-            return decoded_answer
+        ip = '.'.join(str(x) for x in ip)
+        decoded_answer = ans_obj(name, type_q, class_q, ttl, rdlength, ip)
+#        print "Printing ip: " 
+#        print ip
+        return decoded_answer, offset
 
-    else:
-        return -1
+    # ALl other types are unsupported
+    return -1, -1
 
 
 

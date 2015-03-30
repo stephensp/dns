@@ -84,8 +84,8 @@ else:
 ip = tmp[0]
 ip = ip.replace("@", "")
 
-print "ip = " + str(ip)
-print "port = " +str(port)
+#print "ip = " + str(ip)
+#print "port = " +str(port)
 sock.sendto(request, (ip, port))
 
 # Now wait for response 
@@ -119,7 +119,7 @@ if result:
       sys.exit(-1)
   if header.rcode == 3:
       # Name error
-      print "NOT FOUND"
+      print "NOTFOUND"
       sys.exit(-1)
   if header.rcode == 4:
       # Format error unable to interpert query
@@ -137,9 +137,25 @@ if result:
       sys.exit(-1)
 
   # Finally let's get answers
-  answer = dns_packet.unpack_answer(data, len(request), header.ancount)
-
-  print "IP " + str(answer.ip_adr) + "  " + 
+  offset = len(request)
+  for i in range(0, header.ancount):
+      answer, offset = dns_packet.unpack_answer(data, offset)
+      if answer == -1:
+          print "Error: Unsupported type"
+          sys.exit(-1)
+    
+      if answer.type_q == 1:
+          if header.aa == 0:
+            print "IP\t" + str(answer.ip_adr) + "\tnonauth"
+          if header.aa == 1:
+            print "IP\t" + str(answer.ip_adr) + "\tauth"
+      if answer.type_q == 0x5:
+          if header.aa == 0:
+            print "CNAME\t" + str(answer.ip_adr) + "\tnonauth"
+          if header.aa == 1:
+            print "CNAME\t" + str(answer.ip_adr) + "\tauth"
+    
+        
 else:
   log("[error] timeout")
   sys.exit(-1)
