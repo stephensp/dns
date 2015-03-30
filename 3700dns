@@ -12,6 +12,7 @@ import select
 import json
 from string import ascii_letters, digits, punctuation
 import dns_packet
+from struct import unpack
 
 def log(string):
   sys.stderr.write(datetime.datetime.now().strftime("%H:%M:%S.%f") + " " + string + "\n")
@@ -77,7 +78,7 @@ dump_packet(request)
 ip = sys.argv[1]
 tmp = ip.split(':')
 if(len(tmp) == 2):
-    port = tmp[1]
+    port = int(tmp[1])
 else:
     port = 53
 
@@ -89,10 +90,16 @@ ip = ip.replace("@", "")
 sock.sendto(request, (ip, port))
 
 # Now wait for response 
-result = sock.recvfrom(MSG_SIZE)
+sockets = []
+sockets.append(sock)
+ready, ignore, ignore2 = select.select(sockets, [], [], .01)
   
+if(len(ready) == 0):
+    print "NORESPONSE"
+    sys.exit(-1)
 # If nothing is ready, we hit the timeout
-if result:
+if (len(ready) != 0):
+  result = sock.recvfrom(MSG_SIZE)
   (data, addr) = result
   header = dns_packet.unpack_header(data[:12]) 
 
@@ -157,6 +164,6 @@ if result:
     
         
 else:
-  log("[error] timeout")
+  print "NORESPONSE"
   sys.exit(-1)
 
