@@ -1,0 +1,23 @@
+Project 2
+
+High Level Approach:
+	Our high level approach was fairly straight forward. It can be broken itno the following sections:
+	-Evaluating parameters and setting up socket
+	-Creating and sending question
+	-Decoding response
+	-Checking response for failures and outputting results
+
+	The first sections is very simple, we read in the command line parameters and then created a socket based on the ip and port read. Before setting up the socket we evaluate that the input parameters are valid. Next we connected to all IP address, as is done in the starter code. The socket is polled using select, this allowed us to write the correct error message in the event of a timeout. 
+	Next we create the request which is divided into two sections, header and question. The header section is static for each type, for example all atype packets will have the same header and all mail server packets will have thesame header. The second part , the question, just required splitting the command line provided address on the '.'. We stored the question after it had been sent in order to verify the responses question matched the question we sent.
+	Decoding responses was the most challenging part of the assignment. It was difficult to do a comprehensive module design for this part, meaning it was difficult the break the decoding of the response into different modules that could be reused. The only part where the was possible was with the function decode_word. This function took a packet and an offset and would decode a name that was foudn in the following format: length , string or a pointer to another name.    
+	The final stage was interperating the decoded data. We threw an error and exited if any parts of the answer were not as expected. If not we outputted the required formatting for the answer.  
+
+Challanges Faced:
+	Overall this was a fairly easy project, the most difficult part was keeping track of all the sections of the packet. The main challenge was dealing with the complex nature of the answer packets. When debugging an issue it was hard to keep track of all the bytes. We found the best way to deal with this was a document explicitely breaking up the packet we were debugging. 
+
+Features:
+	-Given user inputted dns server, port, and address will return an IP addrses and any aliases. 
+	-Usually doesn't break 
+
+Testing:
+	-When implenting the code we stuck with one domain name that returned only an A response. Once that worked we tested with a CNAME response. Then we used a variety of random addresses and ports to see how it behaved. Finally we tested with invalid parameters to make sure that the code handled failure elegently. 

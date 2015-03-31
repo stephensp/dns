@@ -15,38 +15,38 @@ import dns_packet
 from struct import unpack
 
 def log(string):
-  sys.stderr.write(datetime.datetime.now().strftime("%H:%M:%S.%f") + " " + string + "\n")
+    sys.stderr.write(datetime.datetime.now().strftime("%H:%M:%S.%f") + " " + string + "\n")
 
 # Do not change this function!
 def chunks(packet):
-  for i in xrange(0, len(packet), 16):
-    yield packet[i:i+16]
+    for i in xrange(0, len(packet), 16):
+        yield packet[i:i+16]
 
 # Do not change this function!
 def toascii(char):
-  if char == "  ":
-    return ""
-  if char in ascii_letters or char in digits or char in punctuation or char == ' ':
-    return char
-  return '.'
+    if char == "  ":
+        return ""
+    if char in ascii_letters or char in digits or char in punctuation or char == ' ':
+      return char
+    return '.'
 
 # DUMP THE PACKET
 # Do not change this function!
 def dump_packet(packet):
-  lineno = 0
-  for line in list(chunks(packet)):
-    larr = list("{:02X}".format(ord(x)) for x in line)
-    while len(larr) < 16:
-      larr.append("  ")
+    lineno = 0
+    for line in list(chunks(packet)):
+        larr = list("{:02X}".format(ord(x)) for x in line)
+        while len(larr) < 16:
+            larr.append("  ")
 
-    r = "[%04x]   " % (lineno)
-    r = r + " ".join(larr[0:8]) + "   "
-    r = r + " ".join(larr[8:16]) + "   "
-    r = r + ("".join(toascii(x) for x in line[0:8]))
-    if len(line) > 8:
-      r = r + " " + ("".join(toascii(x) for x in line[8:16]))
-    lineno += 16
-    print r
+        r = "[%04x]   " % (lineno)
+        r = r + " ".join(larr[0:8]) + "   "
+        r = r + " ".join(larr[8:16]) + "   "
+        r = r + ("".join(toascii(x) for x in line[0:8]))
+        if len(line) > 8:
+            r = r + " " + ("".join(toascii(x) for x in line[8:16]))
+        lineno += 16
+        print r
 
 TIMEOUT = 5
 MSG_SIZE = 1500
@@ -54,7 +54,7 @@ MSG_SIZE = 1500
 # Bind to all addresses and an ephemeral port
 UDP_IP = ""
 UDP_PORT = 0
-  
+
 # Set up the socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.bind((UDP_IP, UDP_PORT))
@@ -63,25 +63,45 @@ sock.settimeout(TIMEOUT)
 # Get port we bound to
 UDP_PORT = sock.getsockname()[1]
 
-  
+
 # Check to make sure command line arguements were passed correctly
-if(len(sys.argv) != 3):
+if(len(sys.argv) < 3 or len(sys.argv) > 4):
     print "Usage: ./3700dns @<server:port> <name>"
     sys.exit(-1)
 
-request = dns_packet.create_request(sys.argv[2])
-dump_packet(request)
 
 #print binascii.hexlify(bytearray(request))
+# Check if it is a mail server
+if '-' in sys.argv[1]:
+    if sys.argv[1] == "-mx":
+        # 1 is mail server
+        req_type = 1
+        request = dns_packet.create_request(sys.argv[3], 1)
+    if sys.argv[1] == "-ns":
+        # 2 is NS record
+        req_type = 2
+        request = dns_packet.create_request(sys.argv[3], 2)
+    ip = sys.argv[2]
+    tmp = ip.split(':')
+    if(len(tmp) == 2):
+        port = int(tmp[1])
+    else:
+        port = 53
+    
 
-# Send the packet to the DNS server (you'll need to parse the args)
-ip = sys.argv[1]
-tmp = ip.split(':')
-if(len(tmp) == 2):
-    port = int(tmp[1])
 else:
-    port = 53
+    # 0 is type a
+    req_type = 0
+    # Send the packet to the DNS server (you'll need to parse the args)
+    request = dns_packet.create_request(sys.argv[2], 0)
+    ip = sys.argv[1]
+    tmp = ip.split(':')
+    if(len(tmp) == 2):
+        port = int(tmp[1])
+    else:
+        port = 53
 
+dump_packet(request)
 ip = tmp[0]
 ip = ip.replace("@", "")
 
@@ -93,77 +113,83 @@ sock.sendto(request, (ip, port))
 sockets = []
 sockets.append(sock)
 ready, ignore, ignore2 = select.select(sockets, [], [], .01)
-  
+
 if(len(ready) == 0):
     print "NORESPONSE"
     sys.exit(-1)
 # If nothing is ready, we hit the timeout
 if (len(ready) != 0):
-  result = sock.recvfrom(MSG_SIZE)
-  (data, addr) = result
-  header = dns_packet.unpack_header(data[:12]) 
+    result = sock.recvfrom(MSG_SIZE)
+    (data, addr) = result
+    header = dns_packet.unpack_header(data[:12]) 
 
-  # Run some checks to make sure header is as expected
-  if header.h_id != 1337:
-      print "Error: Incorrect id "
-      sys.exit(-1)
+    # Run some checks to make sure header is as expected
+    if header.h_id != 1337:
+        print "Error: Incorrect id "
+        sys.exit(-1)
 
-  if header.qr != 1:
-      print "Error: Received a query"
-      sys.exit(-1)
+    if header.qr != 1:
+        print "Error: Received a query"
+        sys.exit(-1)
 
-  if header.tc == 1:
-      print "Error: Message was truncated"
-      sys.exit(-1)
+    if header.tc == 1:
+        print "Error: Message was truncated"
+        sys.exit(-1)
 
-  if header.rcode == 1:
-      # Format error unable to interpert query
-      print "Error: Format Error"
-      sys.exit(-1)
-  if header.rcode == 2:
-      # Server failure
-      print "Error: Server Failure"
-      sys.exit(-1)
-  if header.rcode == 3:
-      # Name error
-      print "NOTFOUND"
-      sys.exit(-1)
-  if header.rcode == 4:
-      # Format error unable to interpert query
-      print "Error: Not Implemented"
-      sys.exit(-1)
-  if header.rcode == 5:
-      # Format error unable to interpert query
-      print "Error: Connection Refused"
-      sys.exit(-1)
+    if header.rcode == 1:
+        # Format error unable to interpert query
+        print "Error: Format Error"
+        sys.exit(-1)
+    if header.rcode == 2:
+        # Server failure
+        print "Error: Server Failure"
+        sys.exit(-1)
+    if header.rcode == 3:
+        # Name error
+        print "NOTFOUND"
+        sys.exit(-1)
+    if header.rcode == 4:
+        # Format error unable to interpert query
+        print "Error: Not Implemented"
+        sys.exit(-1)
+    if header.rcode == 5:
+        # Format error unable to interpert query
+        print "Error: Connection Refused"
+        sys.exit(-1)
 
-  question = dns_packet.unpack_question(data[12:], len(request)) 
-  # Check to make sure the question in the response matches the request sent
-  if(question != request[12:]):
-      print "Error: The response question does not match the question sent"
-      sys.exit(-1)
+    question = dns_packet.unpack_question(data[12:], len(request)) 
+    # Check to make sure the question in the response matches the request sent
+    if(question != request[12:]):
+        print "Error: The response question does not match the question sent"
+        sys.exit(-1)
 
-  # Finally let's get answers
-  offset = len(request)
-  for i in range(0, header.ancount):
-      answer, offset = dns_packet.unpack_answer(data, offset)
-      if answer == -1:
-          print "Error: Unsupported type"
-          sys.exit(-1)
-    
-      if answer.type_q == 1:
-          if header.aa == 0:
-            print "IP\t" + str(answer.ip_adr) + "\tnonauth"
-          if header.aa == 1:
-            print "IP\t" + str(answer.ip_adr) + "\tauth"
-      if answer.type_q == 0x5:
-          if header.aa == 0:
-            print "CNAME\t" + str(answer.ip_adr) + "\tnonauth"
-          if header.aa == 1:
-            print "CNAME\t" + str(answer.ip_adr) + "\tauth"
-    
-        
+    # Finally let's get answers
+    offset = len(request)
+#    print "There are " + str(header.ancount) + " answers"
+    for i in range(0, header.ancount):
+        answer, offset = dns_packet.unpack_answer(data, offset)
+        if answer == -1:
+            print "Error: eh Unsupported type"
+            sys.exit(-1)
+
+        if answer.type_q == 1:
+            if header.aa == 0:
+                print "IP\t" + str(answer.ip_adr) + "\tnonauth"
+            if header.aa == 1:
+                print "IP\t" + str(answer.ip_adr) + "\tauth"
+        if answer.type_q == 0x5:
+            if header.aa == 0:
+                print "CNAME\t" + str(answer.ip_adr) + "\tnonauth"
+            if header.aa == 1:
+                print "CNAME\t" + str(answer.ip_adr) + "\tauth"
+        if answer.type_q == 0xf:
+            if header.aa == 0:
+                print "MX\t" + str(answer.ip_adr) + "\t" + str(answer.pref) +  "\tnonauth"
+            if header.aa == 1:
+                print "MX\t" + str(answer.ip_adr) + "\t" + str(answer.pref) +  "\tauth"
+
+
 else:
-  print "NORESPONSE"
-  sys.exit(-1)
+    print "NORESPONSE"
+    sys.exit(-1)
 

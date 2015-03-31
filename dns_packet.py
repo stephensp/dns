@@ -25,13 +25,14 @@ class header_obj(object):
 
 
 class ans_obj(object):
-    def __init__(self, name, type_q, class_q, ttl, rdlength, ip_adr):
+    def __init__(self, name, type_q, class_q, ttl, rdlength, ip_adr, pref):
         self.name = name
         self.type_q= type_q 
         self.class_q= class_q 
         self.ttl = ttl 
         self.rdlength = rdlength 
         self.ip_adr = ip_adr
+        self.pref = pref
 
 
 def create_header():
@@ -78,7 +79,7 @@ def unpack_header(header):
     
     return decoded_header
     
-def create_question(address):
+def create_question(address, req_type):
     adr_split = address.split('.')
     
     # Add QNAME
@@ -89,13 +90,18 @@ def create_question(address):
     # Specify end of the name, 0x00
     # Add QTYPE , 0x0001, specifiies A type
     # Add QCLASS, 0x0001, specifies internet address
-    question = question + struct.pack('!BHH',0, 1, 1)
+    if(req_type == 0):
+        question = question + struct.pack('!BHH',0, 1, 1)
+    if(req_type == 1):
+        question = question + struct.pack('!BHH',0, 0xf, 1)
+    if(req_type == 2):
+        question = question + struct.pack('!BHH',0, 0x2, 1)
 
     return question
 
 
-def create_request(address):
-    request = create_header() + create_question(address)
+def create_request(address, req_type):
+    request = create_header() + create_question(address, req_type)
     return request
 
 def unpack_question(question, size):
@@ -143,20 +149,28 @@ def unpack_answer(packet, offset):
     type_q, class_q, ttl, rdlength = struct.unpack("!HHIH", packet[offset:offset+10])
     offset = offset + 10 
     
+#    print "name = " + str(name)
+#    print "type = " + str(type_q) 
+#    print "class= " + str(class_q) 
+#    print "ttl = " + str(ttl) 
+#    print "rdlength = " + str(rdlength) 
 
 
- #   print "type = " + str(type_q) 
- #   print "class= " + str(class_q) 
- #   print "ttl = " + str(ttl) 
- #   print "rdlength = " + str(rdlength) 
-
-    if type_q == 0x0005:
+    if (type_q == 0x000f):
+       # print packet[offset:offset+10]
+       # print packet[offset:offset+18]
+        (pref,) = struct.unpack("!H", packet[offset:offset+2])
+        offset = offset + 2
+        alias, offset = read_word(packet, offset)
+        alias = '.'.join(alias)
+        decoded_answer = ans_obj(name, type_q, class_q, ttl, rdlength, alias, pref)
+        return decoded_answer, offset
+    if (type_q == 0x0005):
+#    if (type_q == 0x0005):
         # This means it is a CNAME, we need to read the alias
         alias, offset = read_word(packet, offset)
         alias = '.'.join(alias)
-#        print "Printing alias addres:" 
-#        print alias
-        decoded_answer = ans_obj(name, type_q, class_q, ttl, rdlength, alias)
+        decoded_answer = ans_obj(name, type_q, class_q, ttl, rdlength, alias, -1)
         return decoded_answer, offset
 
     ip = []
@@ -174,7 +188,7 @@ def unpack_answer(packet, offset):
             ip.append(value)
 
         ip = '.'.join(str(x) for x in ip)
-        decoded_answer = ans_obj(name, type_q, class_q, ttl, rdlength, ip)
+        decoded_answer = ans_obj(name, type_q, class_q, ttl, rdlength, ip, -1)
 #        print "Printing ip: " 
 #        print ip
         return decoded_answer, offset
