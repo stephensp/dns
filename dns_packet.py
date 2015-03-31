@@ -4,6 +4,7 @@ import struct
 import string
 import binascii
 
+# Objec that contains all the elements of the header
 class header_obj(object):
     def __init__(self, h_id, byte_2, qdcount, ancount, nscount, arcount):
         self.h_id = h_id 
@@ -23,7 +24,7 @@ class header_obj(object):
         self.z = (byte_2 >> 4) & 0x7 
         self.rcode = byte_2 & 0xf
 
-
+# Contains all parameters of an answer
 class ans_obj(object):
     def __init__(self, name, type_q, class_q, ttl, rdlength, ip_adr, pref):
         self.name = name
@@ -54,6 +55,7 @@ def create_header():
 
     return header
 
+
 def unpack_header(header):
     h_id, byte_2, qdcount, ancount, nscount, arcount  = struct.unpack('!HHHHHH', header)
     
@@ -80,7 +82,7 @@ def unpack_header(header):
     return decoded_header
     
 def create_question(address, req_type):
-    adr_split = address.split('.')
+    adr_split = address.split('.') # Break up the address on .
     
     # Add QNAME
     question = ''
@@ -101,6 +103,7 @@ def create_question(address, req_type):
 
 
 def create_request(address, req_type):
+    # Request is just a header and a question!
     request = create_header() + create_question(address, req_type)
     return request
 
@@ -108,29 +111,30 @@ def unpack_question(question, size):
     question = question[:(size - 12)]
     return question
     
+# This function takes an offset and a packet and decodes the name stored there
+# It will read until it finds a 0x00. It deals with points and returns an 
+# offset of where it stopped reading. 
 def read_word(packet, offset):
     
-#    print "offset is " + str(offset)
     (length,)  = struct.unpack("!B", packet[offset])
-
     name = []
-
-#    print "length is " + str(length)
 
     while(length != 0x00):
         if(length & 0xc0) == 0xc0:
-            (ptr_offset,) = struct.unpack("!B", packet[offset+1])
-            ptr_offset = ((length & 0x3f) << 8) | ptr_offset
-#            print "offset is" + str(ptr_offset)
+            (ptr_offset,) = struct.unpack("!B", packet[offset+1]) # get the seond half
+            ptr_offset = ((length & 0x3f) << 8) | ptr_offset # clear the pointer signal 
             tmp_name, tmp  = read_word(packet, ptr_offset)
-            name = name + tmp_name
-            return name, (offset + 2)
+            name = name + tmp_name 
 
+            # The offset should not include the expanded name
+            return name, (offset + 2) 
+
+        # If it is not a pointer just parse 
         name.append(packet[offset+1:offset+length+1])
-        offset = offset + length + 1
+        offset = offset + length + 1 
         (length,)  = struct.unpack("!B", packet[offset])
 
-    return name, offset
+    return name, offset+1
     
     
 def unpack_answer(packet, offset):
@@ -146,6 +150,7 @@ def unpack_answer(packet, offset):
 #    print "Printing name: "
 #    print name
 
+#    print binascii.hexlify(bytearray(packet[offset:]))
     type_q, class_q, ttl, rdlength = struct.unpack("!HHIH", packet[offset:offset+10])
     offset = offset + 10 
     
@@ -155,33 +160,31 @@ def unpack_answer(packet, offset):
 #    print "ttl = " + str(ttl) 
 #    print "rdlength = " + str(rdlength) 
 
-
+    
+    
+    # Mail server, need to take into account preferences
     if (type_q == 0x000f):
-       # print packet[offset:offset+10]
-       # print packet[offset:offset+18]
         (pref,) = struct.unpack("!H", packet[offset:offset+2])
         offset = offset + 2
         alias, offset = read_word(packet, offset)
         alias = '.'.join(alias)
         decoded_answer = ans_obj(name, type_q, class_q, ttl, rdlength, alias, pref)
         return decoded_answer, offset
-    if (type_q == 0x0005):
-#    if (type_q == 0x0005):
-        # This means it is a CNAME, we need to read the alias
+
+    # CNAME
+    if (type_q == 0x0005) or (type_q == 0x0002):
         alias, offset = read_word(packet, offset)
         alias = '.'.join(alias)
+#        print alias
         decoded_answer = ans_obj(name, type_q, class_q, ttl, rdlength, alias, -1)
         return decoded_answer, offset
 
     ip = []
-#    print "length of packet is " + str(len(packet))
+
+    # A type
     if type_q  == 0x0001: 
         # This is a standard A class
-#        print "length is " + str(rdlength)
-#        print "offset is " + str(offset)
-#        print binascii.hexlify(bytearray(packet[offset:]))
         my_ip = packet[offset:offset+rdlength]
-#        print binascii.hexlify(bytearray(my_ip))
         
         for j in range(0, rdlength):
             (value,) = struct.unpack("!B", packet[offset+j])
@@ -189,11 +192,9 @@ def unpack_answer(packet, offset):
 
         ip = '.'.join(str(x) for x in ip)
         decoded_answer = ans_obj(name, type_q, class_q, ttl, rdlength, ip, -1)
-#        print "Printing ip: " 
-#        print ip
         return decoded_answer, offset
 
-    # ALl other types are unsupported
+    # All other types are unsupported
     return -1, -1
 
 

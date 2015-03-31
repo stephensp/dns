@@ -71,22 +71,27 @@ if(len(sys.argv) < 3 or len(sys.argv) > 4):
 
 
 #print binascii.hexlify(bytearray(request))
-# Check if it is a mail server
+
+# Figure out what kind of request we are making
 if '-' in sys.argv[1]:
     if sys.argv[1] == "-mx":
         # 1 is mail server
         req_type = 1
         request = dns_packet.create_request(sys.argv[3], 1)
-    if sys.argv[1] == "-ns":
+    elif sys.argv[1] == "-ns":
         # 2 is NS record
         req_type = 2
         request = dns_packet.create_request(sys.argv[3], 2)
+    else:
+        print "Usage: ./3700dns @<server:port> <name>"
+        sys.exit(-1)
+        
     ip = sys.argv[2]
     tmp = ip.split(':')
     if(len(tmp) == 2):
-        port = int(tmp[1])
+        port = int(tmp[1]) # User inputed port
     else:
-        port = 53
+        port = 53 # default port
     
 
 else:
@@ -97,16 +102,14 @@ else:
     ip = sys.argv[1]
     tmp = ip.split(':')
     if(len(tmp) == 2):
-        port = int(tmp[1])
+        port = int(tmp[1]) # User inputted port
     else:
-        port = 53
+        port = 53 # Defulat port
 
-dump_packet(request)
+dump_packet(request) # Display the request
 ip = tmp[0]
 ip = ip.replace("@", "")
 
-#print "ip = " + str(ip)
-#print "port = " +str(port)
 sock.sendto(request, (ip, port))
 
 # Now wait for response 
@@ -115,9 +118,11 @@ sockets.append(sock)
 ready, ignore, ignore2 = select.select(sockets, [], [], .01)
 
 if(len(ready) == 0):
+    # This means a timeout occured
     print "NORESPONSE"
     sys.exit(-1)
-# If nothing is ready, we hit the timeout
+
+# If not timeout let's look at the response
 if (len(ready) != 0):
     result = sock.recvfrom(MSG_SIZE)
     (data, addr) = result
@@ -163,30 +168,42 @@ if (len(ready) != 0):
         print "Error: The response question does not match the question sent"
         sys.exit(-1)
 
+#    print "Rcode: " + str(header.rcode)
+#    print "Number of questions: " + str(header.ancount)
     # Finally let's get answers
-    offset = len(request)
-#    print "There are " + str(header.ancount) + " answers"
+    offset = len(request) # Where to start looking at the packet
     for i in range(0, header.ancount):
         answer, offset = dns_packet.unpack_answer(data, offset)
         if answer == -1:
-            print "Error: eh Unsupported type"
+            print "Error: Unsupported type"
             sys.exit(-1)
 
+        # Type A
         if answer.type_q == 1:
             if header.aa == 0:
                 print "IP\t" + str(answer.ip_adr) + "\tnonauth"
             if header.aa == 1:
                 print "IP\t" + str(answer.ip_adr) + "\tauth"
+        # CNAME
         if answer.type_q == 0x5:
             if header.aa == 0:
                 print "CNAME\t" + str(answer.ip_adr) + "\tnonauth"
             if header.aa == 1:
                 print "CNAME\t" + str(answer.ip_adr) + "\tauth"
+        # Mail server
         if answer.type_q == 0xf:
             if header.aa == 0:
                 print "MX\t" + str(answer.ip_adr) + "\t" + str(answer.pref) +  "\tnonauth"
             if header.aa == 1:
                 print "MX\t" + str(answer.ip_adr) + "\t" + str(answer.pref) +  "\tauth"
+
+        # Name server
+        if answer.type_q == 0x2:
+            if header.aa == 0:
+                print "NS\t" + str(answer.ip_adr) + "\tnonauth"
+            if header.aa == 1:
+                print "NS\t" + str(answer.ip_adr) + "\tauth"
+
 
 
 else:
